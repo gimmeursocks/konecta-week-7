@@ -55,7 +55,7 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 script {
-                    def imageName = "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                    def imageTag = "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${BUILD_NUMBER}"
                     // Use the SSH private key credential
                     withCredentials([
                         sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY'),
@@ -63,16 +63,16 @@ pipeline {
                                         usernameVariable: 'DOCKER_USER',
                                         passwordVariable: 'DOCKER_PASS')
                         ]) {
-                            sh '''
-                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ec2-user@"$EC2_IP" '
-                                echo "Deploying image: '"$DOCKERHUB_NAMESPACE/$IMAGE_NAME:$BUILD_NUMBER"'"
+                            sh """
+                                ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ec2-user@${params.EC2_IP} '
+                                echo "Deploying image: ${imageTag}"
                                 docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
-                                docker pull "$DOCKERHUB_NAMESPACE/$IMAGE_NAME:$BUILD_NUMBER"
+                                docker pull ${imageTag}
                                 docker stop web || true
                                 docker rm web || true
-                                docker run -d --name web -p 80:80 "$DOCKERHUB_NAMESPACE/$IMAGE_NAME:$BUILD_NUMBER"
-                            '
-                            '''
+                                docker run -d --name web -p 80:80 ${imageTag}
+                                '
+                            """
                         }
                 }
             }

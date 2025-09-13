@@ -2,8 +2,10 @@
 # Update system
 dnf update -y
 
-# Install Java (Jenkins requires Java 11+; Amazon Linux 2023 uses Corretto)
+
+# Install Java (Jenkins requires Java 11+; Amazon Linux 2023 uses Corretto) and Git
 dnf install -y java-17-amazon-corretto
+dnf install -y git
 
 # Add the Jenkins repo and import its GPG key
 curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.repo \

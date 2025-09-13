@@ -24,5 +24,6 @@ dnf install -y docker
 systemctl enable docker
 systemctl start docker
 
-# Allow the jenkins user to run docker without sudo
+# Allow the users to run docker without sudo
 usermod -aG docker jenkins
+usermod -aG docker ec2-user

@@ -17,7 +17,7 @@ It consists of three Jenkins pipelines:
 **Flow**
 
 1. `terraform init` (remote backend).
-2. `terraform apply` creates `t2.micro`/`t3.micro` EC2 with tags  
+2. `terraform apply` creates `t2.micro` EC2 with tags  
    `Name=ci-ephemeral`, `lifespan=ephemeral`, `owner=jenkins`.
 3. Outputs `public_ip`.
 4. Runs Ansible playbook to install & enable Docker.
@@ -79,5 +79,5 @@ cron('TZ=Africa/Cairo\n0 0 * * *')
 
 - **Terraform** uses an **S3 remote backend** (see `terraform/backend.tf`).
 - **Secrets** (SSH key, Docker Hub creds) are stored in **Jenkins Credentials Manager**.
-- IAM role for cleanup job is least-privilege: `ec2:DescribeInstances` and `ec2:TerminateInstances`.
-
+- Jenkins Server runs on a manually launched EC2 instance (t3.small) that was bootstrapped using the jenkins-server-userdata script.
+- The server has an IAM role attached directly to it, granting the cleanup job only the minimum required permissions: `ec2:DescribeInstances` and `ec2:TerminateInstances`.

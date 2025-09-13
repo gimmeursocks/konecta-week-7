@@ -1,0 +1,18 @@
+#!/bin/bash
+# Update system
+dnf update -y
+
+# Install Java (Jenkins requires Java 11+; Amazon Linux 2023 uses Corretto)
+dnf install -y java-17-amazon-corretto
+
+# Add the Jenkins repo and import its GPG key
+curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.repo \
+  -o /etc/yum.repos.d/jenkins.repo
+rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+
+# Install Jenkins
+dnf install -y jenkins
+
+# Enable and start Jenkins
+systemctl enable jenkins
+systemctl start jenkins

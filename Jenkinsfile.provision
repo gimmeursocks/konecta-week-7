@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout SCM') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Terraform Provision') {
+            steps {
+                dir('terraform') {
+                    // Uses AWS credentials with the role on the Jenkins server
+                    sh 'terraform init'
+                    sh 'terraform apply -auto-approve'
+                    // Extract the IP address and save it to a file
+                    sh 'terraform output -raw public_ip > ../ec2_ip.txt'
+                    }
+                }
+            }
+        }
+
+        stage('Ansible Configuration') {
+            steps {
+                script {
+                    // Read the IP from the file created in the previous stage
+                    def ec2_ip = readFile('ec2_ip.txt').trim()
+                    echo "Configuring server at ${ec2_ip}"
+
+                    // Use the SSH private key credential
+                    withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                        // Wait a bit for SSH to become available
+                        sh 'sleep 20'
+                        // Run Ansible
+                        sh """
+                        ansible-playbook -i '${ec2_ip},' \\
+                                         --private-key ${SSH_KEY} \\
+                                         --user ec2-user \\
+                                         -e 'ansible_ssh_common_args=-o StrictHostKeyChecking=no' \\
+                                         ../ansible/playbook.yml
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                // Trigger Pipeline 2 and pass the IP as a parameter
+                def ec2_ip = readFile('ec2_ip.txt').trim()
+                build job: 'deployment-pipeline', parameters: [string(name: 'EC2_IP', value: ec2_ip)]
+            }
+        }
+    }
+}

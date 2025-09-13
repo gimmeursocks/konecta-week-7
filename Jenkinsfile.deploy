@@ -1,0 +1,84 @@
+pipeline {
+    agent any
+
+    // Define the EC2_IP parameter that this pipeline expects
+    parameters {
+        string(name: 'EC2_IP', defaultValue: '', description: 'IP of the EC2 instance to deploy to')
+    }
+
+    environment {
+        // Your private Docker Hub namespace/username
+        DOCKERHUB_NAMESPACE = "gimmeursocks"
+        IMAGE_NAME          = "nginx-ci"
+    }
+
+    stages {
+        stage('Prepare Deployment Info') {
+            steps {
+                script {
+                    // Create a dynamic index.html for this specific build
+                    def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss z", TimeZone.getTimeZone('Africa/Cairo'))
+                    def htmlContent = readFile('index.html')
+                    htmlContent = htmlContent.replace('JENKINS_BUILD_NUMBER', env.BUILD_NUMBER)
+                    htmlContent = htmlContent.replace('DEPLOY_TIMESTAMP', timestamp)
+                    writeFile(file: 'index.build.html', text: htmlContent)
+                }
+            }
+        }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    def imageName = "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                    // Use the Docker Hub credential
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        // Build an image using the dynamic index.html
+                        sh "docker build -t ${imageName} -f Dockerfile ."
+                        // Login to Docker Hub
+                        sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                        // Push the image
+                        sh "docker push ${imageName}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
+                script {
+                    def imageName = "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                    // Use the SSH private key credential
+                    withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                        sh """
+                        ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@${params.EC2_IP} '
+                          echo "Deploying image: ${imageName}"
+
+                          # Login to Docker Hub on the remote server
+                          docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+
+                          # Pull the latest image
+                          docker pull ${imageName}
+
+                          # Stop and remove the old container if it exists (idempotency)
+                          docker stop web || true
+                          docker rm web || true
+
+                          # Run the new container
+                          docker run -d --name web -p 80:80 ${imageName}
+                        '
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                // Wait for the container to start
+                sh 'sleep 5'
+                echo "Verifying deployment at http://${params.EC2_IP}"
+                sh "curl http://${params.EC2_IP}"
+            }
+        }
+    }
+}

@@ -55,18 +55,23 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 script {
+                    if (params.EC2_IP.isEmpty()) {
+                        error("EC2_IP parameter cannot be empty. Please provide the EC2 instance IP when running the job.")
+                    }
+
                     def imageTag = "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${BUILD_NUMBER}"
-                    // Use the SSH private key credential
+                    // Use the SSH private key and Docker Hub credentials
                     withCredentials([
                         sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY'),
                         usernamePassword(credentialsId: 'dockerhub-credentials',
                                         usernameVariable: 'DOCKER_USER',
                                         passwordVariable: 'DOCKER_PASS')
                         ]) {
+                            // **FIX 2: Use escaped variables (\$) for secrets to prevent insecure interpolation**
                             sh """
-                                ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ec2-user@${params.EC2_IP} '
+                                ssh -i "\$SSH_KEY" -o StrictHostKeyChecking=no ec2-user@${params.EC2_IP} '
                                 echo "Deploying image: ${imageTag}"
-                                docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+                                docker login -u "$DOCKER_USER" -p "\$DOCKER_PASS"
                                 docker pull ${imageTag}
                                 docker stop web || true
                                 docker rm web || true

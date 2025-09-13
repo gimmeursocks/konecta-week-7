@@ -16,7 +16,6 @@ pipeline {
                     sh 'terraform apply -auto-approve'
                     // Extract the IP address and save it to a file
                     sh 'terraform output -raw public_ip > ../ec2_ip.txt'
-                    }
                 }
             }
         }

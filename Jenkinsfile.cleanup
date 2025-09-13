@@ -1,38 +1,31 @@
 pipeline {
     agent any
 
-    // This defines the schedule
     triggers {
-        cron('''
-            TZ=Africa/Cairo
-            0 0 * * *
-        ''')
+        cron('TZ=Africa/Cairo\n0 0 * * *')
     }
 
     stages {
         stage('Find and Terminate Ephemeral EC2 Instances') {
             steps {
-                // Using AWS credentials from Jenkins Role
-                sh """
+                sh '''
                 #!/bin/bash
                 set -e
                 echo "Searching for EC2 instances with tag lifespan=ephemeral..."
 
-                # Find instance IDs based on the tag and state
-                INSTANCE_IDS=\$(aws ec2 describe-instances \\
-                    --filters "Name=tag:lifespan,Values=ephemeral" "Name=instance-state-name,Values=pending,running,stopping,stopped" \\
-                    --query "Reservations[].Instances[].InstanceId" \\
+                INSTANCE_IDS=$(aws ec2 describe-instances \
+                    --filters "Name=tag:lifespan,Values=ephemeral" "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+                    --query "Reservations[].Instances[].InstanceId" \
                     --output text)
 
-                if [ -z "\$INSTANCE_IDS" ]; then
+                if [ -z "$INSTANCE_IDS" ]; then
                     echo "No ephemeral instances found to terminate."
                 else
-                    echo "Found ephemeral instances: \$INSTANCE_IDS"
-                    echo "Terminating instances..."
-                    aws ec2 terminate-instances --instance-ids \$INSTANCE_IDS
+                    echo "Found ephemeral instances: $INSTANCE_IDS"
+                    aws ec2 terminate-instances --instance-ids $INSTANCE_IDS
                     echo "Termination command sent successfully."
                 fi
-                """
+                '''
             }
         }
     }

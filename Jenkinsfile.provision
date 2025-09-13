@@ -38,7 +38,7 @@ pipeline {
                                          --private-key "$SSH_KEY" \
                                          --user ec2-user \
                                          -e 'ansible_ssh_common_args=-o StrictHostKeyChecking=no' \
-                                         ../ansible/playbook.yml
+                                         ansible/playbook.yml
                     """
                 }
             }

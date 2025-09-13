@@ -7,7 +7,7 @@ pipeline {
     }
 
     environment {
-        // Your private Docker Hub namespace/username
+        // My private Docker Hub namespace/username
         DOCKERHUB_NAMESPACE = "gimmeursocks"
         IMAGE_NAME          = "nginx-ci"
     }

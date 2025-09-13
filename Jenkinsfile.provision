@@ -18,7 +18,7 @@ pipeline {
                         terraform -chdir=terraform init
                         terraform -chdir=terraform apply -auto-approve \
                         -var "public_key=$(cat pubkey.pem)"
-                        terraform -chdir=terraform output -raw public_ip > ../ec2_ip.txt
+                        terraform -chdir=terraform output -raw public_ip > ec2_ip.txt
                     '''
                 }
             }

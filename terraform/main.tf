@@ -38,7 +38,7 @@ resource "aws_security_group" "web_sg" {
 # Create a key pair to be able to SSH into the instance
 resource "aws_key_pair" "deployer_key" {
   key_name   = "deployer-key-ci"
-  public_key = file("~/Downloads/ansible-playground-keypair.pem") # Path to public key
+  public_key = var.public_key
 }
 
 # Create the EC2 instance

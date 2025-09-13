@@ -10,12 +10,16 @@ pipeline {
 
         stage('Terraform Provision') {
             steps {
-                dir('terraform') {
-                    // Uses AWS credentials with the role on the Jenkins server
-                    sh 'terraform init'
-                    sh 'terraform apply -auto-approve'
-                    // Extract the IP address and save it to a file
-                    sh 'terraform output -raw public_ip > ../ec2_ip.txt'
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key',
+                                           keyFileVariable: 'SSH_KEY')]) {
+                    // Derive public key on the fly and pass as TF var
+                    sh """
+                        ssh-keygen -y -f "$SSH_KEY" > pubkey.pem
+                        terraform -chdir=terraform init
+                        terraform -chdir=terraform apply -auto-approve \
+                        -var "public_key=$(cat pubkey.pem)"
+                        terraform -chdir=terraform output -raw public_ip > ../ec2_ip.txt
+                    """
                 }
             }
         }

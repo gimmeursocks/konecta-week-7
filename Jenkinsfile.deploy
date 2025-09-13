@@ -16,12 +16,21 @@ pipeline {
         stage('Prepare Deployment Info') {
             steps {
                 script {
-                    // Create a dynamic index.html for this specific build
-                    def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss z", TimeZone.getTimeZone('Africa/Cairo'))
-                    def htmlContent = readFile('index.html')
-                    htmlContent = htmlContent.replace('JENKINS_BUILD_NUMBER', env.BUILD_NUMBER)
-                    htmlContent = htmlContent.replace('DEPLOY_TIMESTAMP', timestamp)
-                    writeFile(file: 'index.build.html', text: htmlContent)
+                    // Format timestamp for Cairo time zone
+                    def timestamp = new Date().format(
+                        "yyyy-MM-dd HH:mm:ss z",
+                        TimeZone.getTimeZone('Africa/Cairo')
+                    )
+
+                    // Read the template and replace placeholders
+                    def htmlContent = readFile 'index.html'
+                    htmlContent = htmlContent
+                        .replace('JENKINS_BUILD_NUMBER', env.BUILD_NUMBER)
+                        .replace('DEPLOY_TIMESTAMP', timestamp)
+
+                    // Save to a build-specific file (or overwrite the original)
+                    writeFile file: 'index.build.html', text: htmlContent
+                    echo "Dynamic index.html created with build #${env.BUILD_NUMBER} at ${timestamp}"
                 }
             }
         }
@@ -48,28 +57,23 @@ pipeline {
                 script {
                     def imageName = "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
                     // Use the SSH private key credential
-                    withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
-                        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                            sh """
-                            ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@${params.EC2_IP} '
-                            echo "Deploying image: ${imageName}"
-
-                            # Login to Docker Hub on the remote server
-                            docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-
-                            # Pull the latest image
-                            docker pull ${imageName}
-
-                            # Stop and remove the old container if it exists (idempotency)
-                            docker stop web || true
-                            docker rm web || true
-
-                            # Run the new container
-                            docker run -d --name web -p 80:80 ${imageName}
+                    withCredentials([
+                        sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY'),
+                        usernamePassword(credentialsId: 'dockerhub-credentials',
+                                        usernameVariable: 'DOCKER_USER',
+                                        passwordVariable: 'DOCKER_PASS')
+                        ]) {
+                            sh '''
+                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ec2-user@"$EC2_IP" '
+                                echo "Deploying image: '"$DOCKERHUB_NAMESPACE/$IMAGE_NAME:$BUILD_NUMBER"'"
+                                docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+                                docker pull "$DOCKERHUB_NAMESPACE/$IMAGE_NAME:$BUILD_NUMBER"
+                                docker stop web || true
+                                docker rm web || true
+                                docker run -d --name web -p 80:80 "$DOCKERHUB_NAMESPACE/$IMAGE_NAME:$BUILD_NUMBER"
                             '
-                            """
+                            '''
                         }
-                    }
                 }
             }
         }

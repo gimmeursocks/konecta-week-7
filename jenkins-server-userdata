@@ -2,14 +2,8 @@
 # Update system
 dnf update -y
 
-# Install Terraform
-yum install -y yum-utils
-yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
-yum -y install terraform
-
-# Install Java (Jenkins requires Java 11+; Amazon Linux 2023 uses Corretto) and Git
+# Install Java (Jenkins requires Java 11+; Amazon Linux 2023 uses Corretto)
 dnf install -y java-17-amazon-corretto
-dnf install -y git
 
 # Add the Jenkins repo and import its GPG key
 curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.repo \

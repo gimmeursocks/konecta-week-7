@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        SSH_KEY = credentials('ec2-ssh-key')
+    }
+
     stages {
         stage('Checkout SCM') {
             steps {
@@ -10,17 +14,13 @@ pipeline {
 
         stage('Terraform Provision') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key',
-                                           keyFileVariable: 'SSH_KEY')]) {
-                    // Derive public key on the fly and pass as TF var
-                    sh '''
-                        ssh-keygen -y -f "$SSH_KEY" > pubkey.pem
-                        terraform -chdir=terraform init
-                        terraform -chdir=terraform apply -auto-approve \
+                sh '''
+                    ssh-keygen -y -f "$SSH_KEY" > pubkey.pem
+                    terraform -chdir=terraform init
+                    terraform -chdir=terraform apply -auto-approve \
                         -var "public_key=$(cat pubkey.pem)"
-                        terraform -chdir=terraform output -raw public_ip > ec2_ip.txt
-                    '''
-                }
+                    terraform -chdir=terraform output -raw public_ip > ec2_ip.txt
+                '''
             }
         }
 
@@ -31,19 +31,15 @@ pipeline {
                     def ec2_ip = readFile('ec2_ip.txt').trim()
                     echo "Configuring server at ${ec2_ip}"
 
-                    // Use the SSH private key credential
-                    withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
-                        // Wait a bit for SSH to become available
-                        sh 'sleep 20'
-                        // Run Ansible
-                        sh """
-                        ansible-playbook -i '${ec2_ip},' \\
-                                         --private-key ${SSH_KEY} \\
-                                         --user ec2-user \\
-                                         -e 'ansible_ssh_common_args=-o StrictHostKeyChecking=no' \\
+                    // Use the SSH private key from the environment variable
+                    sh """
+                        sleep 20
+                        ansible-playbook -i "${ec2_ip}," \
+                                         --private-key "$SSH_KEY" \
+                                         --user ec2-user \
+                                         -e 'ansible_ssh_common_args=-o StrictHostKeyChecking=no' \
                                          ../ansible/playbook.yml
-                        """
-                    }
+                    """
                 }
             }
         }

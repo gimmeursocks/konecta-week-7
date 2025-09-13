@@ -35,10 +35,10 @@ pipeline {
                     sh """
                         sleep 20
                         ansible-playbook -i "${ec2_ip}," \
-                                         --private-key "$SSH_KEY" \
-                                         --user ec2-user \
-                                         -e 'ansible_ssh_common_args=-o StrictHostKeyChecking=no' \
-                                         ansible/playbook.yml
+                                        --private-key "$SSH_KEY" \
+                                        --user ec2-user \
+                                        -e "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+                                        ansible/playbook.yml
                     """
                 }
             }

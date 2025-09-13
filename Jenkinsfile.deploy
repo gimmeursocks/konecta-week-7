@@ -49,24 +49,26 @@ pipeline {
                     def imageName = "${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
                     // Use the SSH private key credential
                     withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
-                        sh """
-                        ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@${params.EC2_IP} '
-                          echo "Deploying image: ${imageName}"
+                        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh """
+                            ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ec2-user@${params.EC2_IP} '
+                            echo "Deploying image: ${imageName}"
 
-                          # Login to Docker Hub on the remote server
-                          docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+                            # Login to Docker Hub on the remote server
+                            docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
 
-                          # Pull the latest image
-                          docker pull ${imageName}
+                            # Pull the latest image
+                            docker pull ${imageName}
 
-                          # Stop and remove the old container if it exists (idempotency)
-                          docker stop web || true
-                          docker rm web || true
+                            # Stop and remove the old container if it exists (idempotency)
+                            docker stop web || true
+                            docker rm web || true
 
-                          # Run the new container
-                          docker run -d --name web -p 80:80 ${imageName}
-                        '
-                        """
+                            # Run the new container
+                            docker run -d --name web -p 80:80 ${imageName}
+                            '
+                            """
+                        }
                     }
                 }
             }

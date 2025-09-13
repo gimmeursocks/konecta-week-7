@@ -2,11 +2,13 @@
 data "aws_ami" "al2023_latest" {
   most_recent = true
   owners      = ["amazon"]
+
   filter {
     name   = "name"
-    values = ["al2023-ami-kernel-default-x86_64*"]
+    values = ["al2023-ami-*-x86_64"]
   }
 }
+
 
 # Create a security group to allow SSH and HTTP traffic
 resource "aws_security_group" "web_sg" {
